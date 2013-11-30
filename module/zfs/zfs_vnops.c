@@ -599,6 +599,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	int		count = 0;
 	sa_bulk_attr_t	bulk[4];
 	uint64_t	mtime[2], ctime[2];
+	hrtime_t before;
 	ASSERTV(int	iovcnt = uio->uio_iovcnt);
 
 	/*
@@ -713,6 +714,9 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	while (n > 0) {
 		abuf = NULL;
 		woff = uio->uio_loffset;
+
+		before = gethrtime();
+
 again:
 		if (zfs_owner_overquota(zsb, zp, B_FALSE) ||
 		    zfs_owner_overquota(zsb, zp, B_TRUE)) {
@@ -775,6 +779,7 @@ again:
 				dmu_return_arcbuf(abuf);
 			break;
 		}
+		dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 		/*
 		 * If zfs_range_lock() over-locked we grow the blocksize
@@ -1274,6 +1279,7 @@ zfs_create(struct inode *dip, char *name, vattr_t *vap, int excl,
 	zfs_acl_ids_t   acl_ids;
 	boolean_t	fuid_dirtied;
 	boolean_t	have_acl = B_FALSE;
+	hrtime_t before;
 
 	/*
 	 * If we have an ephemeral id, ACL, or XVATTR then
@@ -1306,6 +1312,7 @@ zfs_create(struct inode *dip, char *name, vattr_t *vap, int excl,
 		}
 	}
 
+	before = gethrtime();
 top:
 	*ipp = NULL;
 	if (*name == '\0') {
@@ -1399,6 +1406,7 @@ top:
 			ZFS_EXIT(zsb);
 			return (error);
 		}
+		dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 		zfs_mknode(dzp, vap, tx, cr, 0, &zp, &acl_ids);
 
 		if (fuid_dirtied)
@@ -1519,6 +1527,7 @@ zfs_remove(struct inode *dip, char *name, cred_t *cr)
 #endif /* HAVE_PN_UTILS */
 	int		error;
 	int		zflg = ZEXISTS;
+	hrtime_t before;
 
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(dzp);
@@ -1532,6 +1541,7 @@ zfs_remove(struct inode *dip, char *name, cred_t *cr)
 	}
 #endif /* HAVE_PN_UTILS */
 
+	before = gethrtime();
 top:
 	xattr_obj = 0;
 	xzp = NULL;
@@ -1613,6 +1623,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	/*
 	 * Remove the directory entry.
@@ -1705,6 +1716,7 @@ zfs_mkdir(struct inode *dip, char *dirname, vattr_t *vap, struct inode **ipp,
 	gid_t		gid = crgetgid(cr);
 	zfs_acl_ids_t   acl_ids;
 	boolean_t	fuid_dirtied;
+	hrtime_t before;
 
 	ASSERT(S_ISDIR(vap->va_mode));
 
@@ -1755,6 +1767,7 @@ zfs_mkdir(struct inode *dip, char *dirname, vattr_t *vap, struct inode **ipp,
 	 * EACCES instead of EEXIST which can cause some applications
 	 * to fail.
 	 */
+	before = gethrtime();
 top:
 	*ipp = NULL;
 
@@ -1809,6 +1822,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	/*
 	 * Create new node.
@@ -1878,6 +1892,7 @@ zfs_rmdir(struct inode *dip, char *name, struct inode *cwd, cred_t *cr,
 	dmu_tx_t	*tx;
 	int		error;
 	int		zflg = ZEXISTS;
+	hrtime_t before;
 
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(dzp);
@@ -1885,6 +1900,7 @@ zfs_rmdir(struct inode *dip, char *name, struct inode *cwd, cred_t *cr,
 
 	if (flags & FIGNORECASE)
 		zflg |= ZCILOOK;
+	before = gethrtime();
 top:
 	zp = NULL;
 
@@ -1946,6 +1962,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	error = zfs_link_destroy(dl, zp, tx, zflg, NULL);
 
@@ -2444,6 +2461,7 @@ zfs_setattr(struct inode *ip, vattr_t *vap, int flags, cred_t *cr)
 	boolean_t	fuid_dirtied = B_FALSE;
 	sa_bulk_attr_t	*bulk, *xattr_bulk;
 	int		count = 0, xattr_count = 0;
+	hrtime_t before;
 
 	if (mask == 0)
 		return (0);
@@ -2517,6 +2535,7 @@ zfs_setattr(struct inode *ip, vattr_t *vap, int flags, cred_t *cr)
 		}
 	}
 
+	before = gethrtime();
 top:
 	attrzp = NULL;
 	aclp = NULL;
@@ -2829,6 +2848,7 @@ top:
 			dmu_tx_wait(tx);
 		goto out;
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	count = 0;
 	/*
@@ -3162,6 +3182,7 @@ zfs_rename(struct inode *sdip, char *snm, struct inode *tdip, char *tnm,
 	int		cmp, serr, terr;
 	int		error = 0;
 	int		zflg = 0;
+	hrtime_t before;
 
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(sdzp);
@@ -3183,6 +3204,7 @@ zfs_rename(struct inode *sdip, char *snm, struct inode *tdip, char *tnm,
 	if (flags & FIGNORECASE)
 		zflg |= ZCILOOK;
 
+	before = gethrtime();
 top:
 	szp = NULL;
 	tzp = NULL;
@@ -3398,6 +3420,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	if (tzp)	/* Attempt to remove the existing target */
 		error = zfs_link_destroy(tdl, tzp, tx, zflg, NULL);
@@ -3498,6 +3521,7 @@ zfs_symlink(struct inode *dip, char *name, vattr_t *vap, char *link,
 	zfs_acl_ids_t	acl_ids;
 	boolean_t	fuid_dirtied;
 	uint64_t	txtype = TX_SYMLINK;
+	hrtime_t before;
 
 	ASSERT(S_ISLNK(vap->va_mode));
 
@@ -3523,6 +3547,7 @@ zfs_symlink(struct inode *dip, char *name, vattr_t *vap, char *link,
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	before = gethrtime();
 top:
 	*ipp = NULL;
 
@@ -3575,6 +3600,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	/*
 	 * Create a new object for the symlink.
@@ -3693,6 +3719,7 @@ zfs_link(struct inode *tdip, struct inode *sip, char *name, cred_t *cr)
 	int		zf = ZNEW;
 	uint64_t	parent;
 	uid_t		owner;
+	hrtime_t before;
 
 	ASSERT(S_ISDIR(tdip->i_mode));
 
@@ -3761,6 +3788,7 @@ zfs_link(struct inode *tdip, struct inode *sip, char *name, cred_t *cr)
 		return (error);
 	}
 
+	before = gethrtime();
 top:
 	/*
 	 * Attempt to lock directory; fail if entry already exists.
@@ -3788,6 +3816,7 @@ top:
 		ZFS_EXIT(zsb);
 		return (error);
 	}
+	dmu_tx_assign_add_nsecs(tx, gethrtime() - before);
 
 	error = zfs_link_create(dl, szp, tx, 0);
 

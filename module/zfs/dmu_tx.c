@@ -1429,6 +1429,13 @@ dmu_tx_hold_sa(dmu_tx_t *tx, sa_handle_t *hdl, boolean_t may_grow)
 }
 
 void
+dmu_tx_assign_add_nsecs(dmu_tx_t *tx, uint64_t nsecs)
+{
+    dsl_pool_tx_assign_add_usecs(tx->tx_pool, nsecs/ NSEC_PER_USEC);
+	// spa_tx_assign_add_nsecs(tx->tx_pool->dp_spa, nsecs);
+}
+
+void
 dmu_tx_init(void)
 {
 	dmu_tx_ksp = kstat_create("zfs", 0, "dmu_tx", "misc",
