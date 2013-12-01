@@ -306,7 +306,7 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 static void dsl_pool_stats_init(dsl_pool_t *dp)
 {
 	char name[KSTAT_STRLEN];
-	(void) snprintf(name, KSTAT_STRLEN, "zfs/%s", spa_name(dp->dp_spa));
+	(void) snprintf(name, KSTAT_STRLEN, "dsl_pool-%s", spa_name(dp->dp_spa));
 	name[KSTAT_STRLEN-1] = '\0';
 
 	dsl_pool_stats_t pool = {
@@ -315,8 +315,8 @@ static void dsl_pool_stats_init(dsl_pool_t *dp)
 	};
 	memcpy(&dp->dp_stats, &pool, sizeof(pool));
 
-	dp->dp_ksp = kstat_create(name, 0, "dsl_pool", "misc",
-	    KSTAT_TYPE_NAMED, 0, KSTAT_FLAG_VIRTUAL);
+	dp->dp_ksp = kstat_create("zfs", 0, name, "misc",
+	    KSTAT_TYPE_NAMED, sizeof(dsl_pool_stats_t)/sizeof(kstat_named_t), KSTAT_FLAG_VIRTUAL);
 
 	if (dp->dp_ksp) {
 		dp->dp_ksp->ks_data = &dp->dp_stats;
